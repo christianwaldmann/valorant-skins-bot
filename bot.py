@@ -20,7 +20,7 @@ REGION = os.getenv("VALORANT_REGION")
 client = discord.Client()
 
 
-@tasks.loop(hours=25)
+@tasks.loop(hours=24)
 async def get_store_and_send():
     channel = client.get_channel(CHANNEL_ID)
     current_date = datetime.datetime.now(datetime.timezone.utc)
