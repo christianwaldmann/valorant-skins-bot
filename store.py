@@ -154,5 +154,4 @@ def convert(seconds):
     hour = seconds // 3600
     seconds %= 3600
     minutes = seconds // 60
-    seconds %= 60
     return f"{hour} hours and {minutes} minutes"
