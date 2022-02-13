@@ -1,5 +1,6 @@
 import os
 import discord
+from discord.ext import tasks
 import datetime
 from store import store
 
@@ -19,8 +20,8 @@ REGION = os.getenv("VALORANT_REGION")
 client = discord.Client()
 
 
-@client.event
-async def on_ready():
+@tasks.loop(hours=24)
+async def get_store_and_send():
     channel = client.get_channel(CHANNEL_ID)
     current_date = datetime.datetime.now(datetime.timezone.utc)
     current_date_string = current_date.strftime("%d.%m.%Y")
@@ -40,4 +41,10 @@ async def on_ready():
         await channel.send(embed=embed)
 
 
+@get_store_and_send.before_loop
+async def before():
+    await client.wait_until_ready()
+
+
+get_store_and_send.start()
 client.run(TOKEN)
