@@ -3,7 +3,7 @@ import discord
 from discord.ext import tasks
 import asyncio
 import datetime
-from store import store
+from store import store, nightmarket
 
 from dotenv import load_dotenv
 
@@ -16,6 +16,7 @@ CHANNEL_ID = int(os.getenv("DISCORD_CHANNEL_ID"))
 USERNAME = os.getenv("VALORANT_USERNAME")
 PASSWORD = os.getenv("VALORANT_PASSWORD")
 REGION = os.getenv("VALORANT_REGION")
+COMMAND_PREFIX = "!"
 
 
 client = discord.Client()
@@ -40,6 +41,31 @@ async def get_store_and_send():
         )
         embed.set_thumbnail(url=item[2])
         await channel.send(embed=embed)
+
+
+@client.event
+async def on_message(message):
+    if message.author == client.user:
+        return
+
+    if message.content.lower().startswith(f"{COMMAND_PREFIX}nightmarket"):
+        current_date = datetime.datetime.now(datetime.timezone.utc)
+        current_date_string = current_date.strftime("%d.%m.%Y")
+        skins, time = await nightmarket(USERNAME, PASSWORD, REGION)
+        embed = discord.Embed(
+            title=f"{USERNAME}'s nightmarket ({current_date_string})",
+            description=f"Offer ends in {time}",
+            color=discord.Color.red(),
+        )
+        await message.channel.send(embed=embed)
+        for item in skins:
+            embed = discord.Embed(
+                title=item[0],
+                description=f"Price: ~~{item[4]}~~ {item[1]} VP (-{item[3]}%)",
+                color=discord.Color.red(),
+            )
+            embed.set_thumbnail(url=item[2])
+            await message.channel.send(embed=embed)
 
 
 @get_store_and_send.before_loop

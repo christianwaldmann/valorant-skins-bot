@@ -10,8 +10,26 @@ load_dotenv()
 
 async def store(username, password, region):
     headers, user_id = await get_user_data(username, password)
-    skins, time = await get_store(headers, user_id, region)
-    return (skins, time)
+    session = aiohttp.ClientSession()
+    async with session.get(
+        f"https://pd.{region}.a.pvp.net/store/v2/storefront/{user_id}", headers=headers
+    ) as r:
+        data = json.loads(await r.text())
+    await session.close()
+    skinPanel = data["SkinsPanelLayout"]
+    return await get_single_offer_details(headers, skinPanel, region)
+
+
+async def nightmarket(username, password, region):
+    headers, user_id = await get_user_data(username, password)
+    session = aiohttp.ClientSession()
+    async with session.get(
+        f"https://pd.{region}.a.pvp.net/store/v2/storefront/{user_id}", headers=headers
+    ) as r:
+        data = json.loads(await r.text())
+    await session.close()
+    bundle = data["BonusStore"]
+    return await get_nightmarket_details(headers, bundle)
 
 
 async def get_user_data(username, password):
@@ -90,18 +108,7 @@ async def get_user_data(username, password):
         print(e)
 
 
-async def get_store(headers, user_id, region):
-    session = aiohttp.ClientSession()
-    async with session.get(
-        f"https://pd.{region}.a.pvp.net/store/v2/storefront/{user_id}", headers=headers
-    ) as r:
-        data = json.loads(await r.text())
-    await session.close()
-    skinPanel = data["SkinsPanelLayout"]
-    return await get_skin_details(headers, skinPanel, region)
-
-
-async def get_skin_details(headers, skinPanel, region):
+async def get_single_offer_details(headers, skinPanel, region):
     skinIDcost = []
     skinNames = []
     offerSkins = []
@@ -145,13 +152,53 @@ async def get_skin_details(headers, skinPanel, region):
                 )
     return (
         offerSkins,
-        convert(skinPanel["SingleItemOffersRemainingDurationInSeconds"]),
+        convert_seconds_to_output_str(
+            skinPanel["SingleItemOffersRemainingDurationInSeconds"]
+        ),
     )
 
 
-def convert(seconds):
-    seconds = seconds % (24 * 3600)
+async def get_nightmarket_details(headers, bundle):
+    offerSkins = []
+
+    session = aiohttp.ClientSession()
+
+    for item in bundle["BonusStoreOffers"]:
+        skin_id = item["Offer"]["OfferID"]
+        async with session.get(
+            f"https://valorant-api.com/v1/weapons/skinlevels/{skin_id}",
+            headers=headers,
+        ) as r:
+            content = json.loads(await r.text())
+            skin_name = content["data"]["displayName"]
+            skin_discounted_price = list(item["DiscountCosts"].values())[0]
+            skin_original_price = list(item["Offer"]["Cost"].values())[0]
+            offerSkins.append(
+                [
+                    skin_name,
+                    skin_discounted_price,
+                    f"https://media.valorant-api.com/weaponskinlevels/{skin_id}/displayicon.png",
+                    item["DiscountPercent"],
+                    skin_original_price,
+                ]
+            )
+
+    await session.close()
+
+    return (
+        offerSkins,
+        convert_seconds_to_output_str(bundle["BonusStoreRemainingDurationInSeconds"]),
+    )
+
+
+def convert_seconds_to_output_str(seconds):
+    days = seconds // (3600 * 24)
+    seconds %= 24 * 3600
     hour = seconds // 3600
     seconds %= 3600
     minutes = seconds // 60
-    return f"{hour} hours and {minutes} minutes"
+    if days == 0:
+        output_str = f"{hour} hours and {minutes} minutes"
+    else:
+        output_str = f"{days} days, {hour} hours and {minutes} minutes"
+    return output_str
