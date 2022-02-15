@@ -1,6 +1,7 @@
 import os
 import discord
 from discord.ext import tasks
+import asyncio
 import datetime
 from store import store
 
@@ -43,7 +44,19 @@ async def get_store_and_send():
 
 @get_store_and_send.before_loop
 async def before():
+    SECONDS_IN_A_DAY = 3600 * 24
+    TIME_IN_HOURS_TO_CHECK_STORE_AND_SEND = 0
+    DELAY_IN_SECONDS = 5
     await client.wait_until_ready()
+    for _ in range(SECONDS_IN_A_DAY):
+        if (
+            datetime.datetime.now(datetime.timezone.utc).hour
+            == TIME_IN_HOURS_TO_CHECK_STORE_AND_SEND
+        ):
+            # wait a few seconds to make sure the valorant store has updated
+            await asyncio.sleep(DELAY_IN_SECONDS)
+            return
+        await asyncio.sleep(1)
 
 
 get_store_and_send.start()
