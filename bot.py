@@ -72,17 +72,20 @@ async def on_message(message):
 async def before():
     SECONDS_IN_A_DAY = 3600 * 24
     TIME_IN_HOURS_TO_CHECK_STORE_AND_SEND = 0
-    DELAY_IN_SECONDS = 5
+    TIME_IN_MINUTES_TO_CHECK_STORE_AND_SEND = 0
+    TIME_IN_SECONDS_TO_CHECK_STORE_AND_SEND = (
+        5  # wait a few seconds to make sure the valorant store has updated
+    )
     await client.wait_until_ready()
     for _ in range(SECONDS_IN_A_DAY):
+        now = datetime.datetime.now(datetime.timezone.utc)
         if (
-            datetime.datetime.now(datetime.timezone.utc).hour
-            == TIME_IN_HOURS_TO_CHECK_STORE_AND_SEND
+            now.hour == TIME_IN_HOURS_TO_CHECK_STORE_AND_SEND
+            and now.minute == TIME_IN_MINUTES_TO_CHECK_STORE_AND_SEND
+            and now.second == TIME_IN_SECONDS_TO_CHECK_STORE_AND_SEND
         ):
-            # wait a few seconds to make sure the valorant store has updated
-            await asyncio.sleep(DELAY_IN_SECONDS)
             return
-        await asyncio.sleep(1)
+        await asyncio.sleep(0.5)
 
 
 get_store_and_send.start()
