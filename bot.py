@@ -1,8 +1,7 @@
 import os
 import discord
-from discord.ext import tasks
 import asyncio
-import datetime
+from datetime import datetime, time, timedelta
 from store import store, nightmarket
 
 from dotenv import load_dotenv
@@ -22,10 +21,10 @@ COMMAND_PREFIX = "!"
 client = discord.Client()
 
 
-@tasks.loop(hours=24)
 async def get_store_and_send():
+    await client.wait_until_ready()
     channel = client.get_channel(CHANNEL_ID)
-    current_date = datetime.datetime.now(datetime.timezone.utc)
+    current_date = datetime.utcnow()
     current_date_string = current_date.strftime("%d.%m.%Y")
 
     skins, time = await store(USERNAME, PASSWORD, REGION)
@@ -49,7 +48,7 @@ async def on_message(message):
         return
 
     if message.content.lower().startswith(f"{COMMAND_PREFIX}nightmarket"):
-        current_date = datetime.datetime.now(datetime.timezone.utc)
+        current_date = datetime.utcnow()
         current_date_string = current_date.strftime("%d.%m.%Y")
         skins, time = await nightmarket(USERNAME, PASSWORD, REGION)
         embed = discord.Embed(
@@ -68,25 +67,29 @@ async def on_message(message):
             await message.channel.send(embed=embed)
 
 
-@get_store_and_send.before_loop
-async def before():
-    SECONDS_IN_A_DAY = 3600 * 24
-    TIME_IN_HOURS_TO_CHECK_STORE_AND_SEND = 0
-    TIME_IN_MINUTES_TO_CHECK_STORE_AND_SEND = 0
-    TIME_IN_SECONDS_TO_CHECK_STORE_AND_SEND = (
-        5  # wait a few seconds to make sure the valorant store has updated
-    )
-    await client.wait_until_ready()
-    for _ in range(SECONDS_IN_A_DAY):
-        now = datetime.datetime.now(datetime.timezone.utc)
-        if (
-            now.hour == TIME_IN_HOURS_TO_CHECK_STORE_AND_SEND
-            and now.minute == TIME_IN_MINUTES_TO_CHECK_STORE_AND_SEND
-            and now.second == TIME_IN_SECONDS_TO_CHECK_STORE_AND_SEND
-        ):
-            return
-        await asyncio.sleep(0.5)
+def calc_seconds_until_tomorrow_midnight():
+    now = datetime.utcnow()
+    tomorrow = datetime.combine(now.date() + timedelta(days=1), time(0))
+    return (tomorrow - now).total_seconds()
 
 
-get_store_and_send.start()
+def calc_seconds_until_target_time(TIME_IN_DAY_TO_SEND):
+    now = datetime.utcnow()
+    target_time = datetime.combine(now.date(), TIME_IN_DAY_TO_SEND)
+    return (target_time - now).total_seconds()
+
+
+async def main():
+    TIME_IN_DAY_TO_SEND = time(0, 0, 5)
+    now = datetime.utcnow()
+    # Make sure loop doesn't start after TIME_IN_DAY_TO_SEND as then it will send immediately the first time because negative seconds will make the sleep yield instantly
+    if now.time() > TIME_IN_DAY_TO_SEND:
+        await asyncio.sleep(calc_seconds_until_tomorrow_midnight())
+    while True:
+        await asyncio.sleep(calc_seconds_until_target_time(TIME_IN_DAY_TO_SEND))
+        await get_store_and_send()
+        await asyncio.sleep(calc_seconds_until_tomorrow_midnight())
+
+
+client.loop.create_task(main())
 client.run(TOKEN)
