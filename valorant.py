@@ -155,6 +155,29 @@ class ValorantClient:
                     "Ratelimit. Please wait a few minutes and try again."
                 )
 
+            # Two-factor authentication is enabled. So get verification code and authenticate with that
+            verification_code = input(
+                f"Two-factor authentication enabled for user {username}. Enter the verification code: \n"
+            )
+            authdata = {
+                "type": "multifactor",
+                "code": verification_code,
+            }
+            session = aiohttp.ClientSession()
+            async with session.put(
+                "https://auth.riotgames.com/api/v1/authorization",
+                json=authdata,
+                headers=headers,
+            ) as r:
+                data = await r.json()
+            await session.close()
+            if data["type"] == "response":
+                pattern = re.compile(
+                    "access_token=((?:[a-zA-Z]|\d|\.|-|_)*).*id_token=((?:[a-zA-Z]|\d|\.|-|_)*).*expires_in=(\d*)"
+                )
+                data = pattern.findall(data["response"]["parameters"]["uri"])[0]
+                return AccessToken(value=data[0], id=data[1])
+
         raise AuthenticationError(
             "Invalid password. Your username or password may be incorrect!"
         )
