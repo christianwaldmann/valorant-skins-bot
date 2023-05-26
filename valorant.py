@@ -171,7 +171,7 @@ class ValorantClient:
             ) as r:
                 data = await r.json()
             await session.close()
-            if data["type"] == "response":
+            if "access_token" in r.text:
                 pattern = re.compile(
                     "access_token=((?:[a-zA-Z]|\d|\.|-|_)*).*id_token=((?:[a-zA-Z]|\d|\.|-|_)*).*expires_in=(\d*)"
                 )
